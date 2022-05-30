@@ -986,6 +986,10 @@ create_separator()
 create_sort_bar()
 create_separator()
 
-root.bind("<Button-4>", lambda event : file_scrollup_button.invoke())
-root.bind("<Button-5>", lambda event : file_scrolldown_button.invoke())
+if CURRENT_OS == "Linux":
+    root.bind("<Button-4>", lambda event : file_scrollup_button.invoke())
+    root.bind("<Button-5>", lambda event : file_scrolldown_button.invoke())
+else:
+    root.bind("<MouseWheel>", lambda event : file_scrollup_button.invoke() if event.delta > 0 else file_scrolldown_button.invoke())
+
 root.mainloop()
