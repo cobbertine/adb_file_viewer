@@ -244,9 +244,9 @@ def create_toolbar():
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=64, weight=0)) # Open
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))
-    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=64, weight=0)) # Delete
-    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=64, weight=0)) # Move
+    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))
+    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=64, weight=0)) # Delete
 
     column_index = 0
     
@@ -946,7 +946,7 @@ def on_delete():
 
 # After selecting some files, it is possible to use the move functionality
 # When clicking the move button initially, the program enters the move state, and the file view changes to only show directories
-# ALl other buttons except the move button are disabled.
+# All other buttons except the move button are disabled.
 # It is possible to navigate into different directories before finally moving the files
 # When the move button is clicked a second time, if the directory has not changed, the move state is toggled off as no move is required...
 # Selected files remain selected, and a move can be attempted again. All buttons are enabled.
@@ -986,6 +986,7 @@ create_separator()
 create_sort_bar()
 create_separator()
 
+# https://stackoverflow.com/questions/17355902/tkinter-binding-mousewheel-to-scrollbar
 if CURRENT_OS == "Linux":
     root.bind("<Button-4>", lambda event : file_scrollup_button.invoke())
     root.bind("<Button-5>", lambda event : file_scrolldown_button.invoke())
