@@ -102,6 +102,9 @@ CURRENT_OS = platform.system()
 # Received command on android::: ls '/sdcard/John's_Photos'
 # As can be seen, the single quote in "John's" will break the ls command
 # If the directory was: John"s_Photos, the command would break on the host before android would even receive it.
+
+# Quotes aside, there are other symbols which file names can have that can be interpreted by the host shell like $, ` etc. These symbols must be escaped once, as they are wrapped in double quotes and will be interpreted on the host, but will then be wrapped by single quotes on the Android device and therefore won't be interpreted.
+
 # Therefore, any path being supplied must be altered to escape any potential characters that may break or change the command
 # All paths are sent through either quote_path_correctly_outer_double_inner_single or quote_path_correctly_outer_double
 
@@ -126,7 +129,6 @@ GET_DIRECTORY_KBYTE_SIZE_COMMAND = " shell \"du -sd 1 -k '{absolute_directory}'\
 PULL_FILE_COMMAND = " pull \"{absolute_file_path}\" \"{absolute_file_path_on_host}\""
 MOVE_COMMAND = " shell \"mv '{absolute_file_path}' '{absolute_directory}'\""
 DELETE_COMMAND = " shell \"rm -rf '{absolute_file_path}'\""
-GET_TARGET_DIRECTORY_PATH = " shell \"echo \\`cd '{absolute_directory}' && pwd\\`\""
 CREATE_DIRECTORY_COMMAND = " shell \"mkdir -p '{absolute_directory}'\""
 GET_ALL_FILES_IN_DIRECTORY_RECURSIVELY_COMMAND = " shell \"find '{absolute_directory}' -type f\""
 
@@ -152,12 +154,13 @@ PULL_FILE_COMMAND = RUNTIME_ADB_COMMAND + PULL_FILE_COMMAND
 MOVE_COMMAND = RUNTIME_ADB_COMMAND + MOVE_COMMAND
 DELETE_COMMAND = RUNTIME_ADB_COMMAND + DELETE_COMMAND
 OPEN_COMMAND = PULL_FILE_COMMAND + " && " + RUNTIME_OPEN_COMMAND
-GET_TARGET_DIRECTORY_PATH = RUNTIME_ADB_COMMAND + GET_TARGET_DIRECTORY_PATH
 CREATE_DIRECTORY_COMMAND = RUNTIME_ADB_COMMAND + CREATE_DIRECTORY_COMMAND
 GET_ALL_FILES_IN_DIRECTORY_RECURSIVELY_COMMAND = RUNTIME_ADB_COMMAND + GET_ALL_FILES_IN_DIRECTORY_RECURSIVELY_COMMAND
 
 # Constants
 ILLEGAL_WINDOWS_CHARACTERS = ["<", ">", ":", "\"", "/", "\\", "|", "?", "*"]
+LINUX_SHELL_INTERPRETED_SYMBOLS = ["$", "`"]
+WINDOWS_CMD_INTERPRETED_SYMBOLS = ["%"]
 UP_ARROW_STRING = "↑"
 DOWN_ARROW_STRING = "↓"
 MAX_LIST_LENGTH = 15
@@ -487,10 +490,10 @@ def display_file_list():
     filtered_move_state_directory_list = []
     filtered_search_file_directory_list = []
 
-    # If in move state, add all directories to the directory list
+    # If in move state, add all unselected directories to the directory list
     if move_state_info_object is not None:
         for file_descriptor in current_directory_list:
-            if file_descriptor.is_directory == True:
+            if file_descriptor.is_directory == True and file_descriptor.is_selected == False:
                 filtered_move_state_directory_list.append(file_descriptor)
     # If in search state, add all valid files to the search file list
     if len(search_file_field_value) > 0:
@@ -663,12 +666,19 @@ def on_unselect_all(only_filtered_files=False):
             file.deselect()
         selected_files.clear()
 
-# Path quoting explained at the top of this file.
+# This function is called for adb shell commands dealing with a path
 def quote_path_correctly_outer_double_inner_single(path):
-    return path.replace("'", "'\\''").replace("\"", "\\\"").replace("$", "\\$").replace("`", "\\`")
+    return quote_path_correctly_outer_double(path).replace("'", "'\\''")
 
+# This function is called for some adb non-shell commands like adb pull
 def quote_path_correctly_outer_double(path):
-    return path.replace("\"", "\\\"").replace("$", "\\$").replace("`", "\\`")
+    corrected_path = path.replace("\"", "\\\"")
+    
+    for symbol in LINUX_SHELL_INTERPRETED_SYMBOLS if CURRENT_OS == "Linux" else WINDOWS_CMD_INTERPRETED_SYMBOLS if CURRENT_OS == "Windows" else []:
+        corrected_path = corrected_path.replace(symbol, "\\" + symbol)
+
+    return corrected_path
+
 ##
 
 def scroll_to_top():
@@ -827,8 +837,11 @@ def on_select_or_clear_all():
 def on_directory_clicked(file_descriptor):
     global current_directory_value
     global current_directory_list_index
-    result = subprocess.run(GET_TARGET_DIRECTORY_PATH.format(absolute_directory=quote_path_correctly_outer_double_inner_single(current_directory_value + file_descriptor.file_name)), shell=True, capture_output=True, text=True)
-    current_directory_value = result.stdout.rstrip()
+
+    if file_descriptor.file_name == "..":
+        current_directory_value = "/" + "/".join(filter_empty_string_elements(current_directory_value.split("/"))[:-1])
+    else:
+        current_directory_value = (current_directory_value + file_descriptor.file_name).rstrip()
     current_directory_field.delete(1.0, tkinter.END)
     current_directory_field.insert(tkinter.END, current_directory_value)
     current_directory_list_index = 0
@@ -961,7 +974,7 @@ def on_move():
         else:
             # Move button clicked again, different directory
             for file_name in move_state_info_object.file_names:
-                command = MOVE_COMMAND.format(absolute_file_path=quote_path_correctly_outer_double_inner_single(move_state_info_object.initial_working_directory + file_name), absolute_directory=current_directory_value)
+                command = MOVE_COMMAND.format(absolute_file_path=quote_path_correctly_outer_double_inner_single(move_state_info_object.initial_working_directory + file_name), absolute_directory=quote_path_correctly_outer_double_inner_single(current_directory_value))
                 subprocess.run(command, shell=True)
                 print("Command run: {command}".format(command=command))
             move_state_info_object = None
