@@ -134,6 +134,8 @@ FILE_LIST_DETAIL_DATE_INDEX = 5
 FILE_LIST_DETAIL_TIME_INDEX = 6
 LS_FILE_BYTE_INDEX = 4
 DIRECTORY_KBYTE_INDEX = 0
+LS_DETAIL_START_INDEX = 3
+LS_SIMPLE_START_INDEX = 2
 
 if CURRENT_OS == "Windows":
     RUNTIME_ADB_COMMAND = ADB_WINDOWS
@@ -394,14 +396,14 @@ def get_file_list():
     result = subprocess.run(command, capture_output=True, text=True, shell=True)
     print("Command run: {command}".format(command=command))
     # The first 3 elements after splitting by \n are total size, ".", and "..", none of which we want.
-    file_list_details = filter_empty_string_elements(result.stdout.split("\n"))[3:]
+    file_list_details = filter_empty_string_elements(result.stdout.split("\n"))[LS_DETAIL_START_INDEX:]
 
     # Run a simple ls command to just get file names - helps when dealing with a file name that has spaces.
     command = LIST_FILES_COMMAND.format(absolute_current_directory=quote_path_correctly_outer_double_inner_single(current_directory_value))
     result = subprocess.run(command, capture_output=True, text=True, shell=True)
     print("Command run: {command}".format(command=command))
     # The first 2 elements after splitting by \n are ".", and "..", none of which we want.
-    file_list = filter_empty_string_elements(result.stdout.split("\n"))[2:]
+    file_list = filter_empty_string_elements(result.stdout.split("\n"))[LS_SIMPLE_START_INDEX:]
     
     for file_index in range(0, len(file_list)):
         is_directory = False
@@ -846,6 +848,7 @@ def on_search():
 
 # Creates a new directory in the current directory
 def on_create_directory():
+    # Remove any accidental slashes so there's no path ambiguity
     new_directory_name = create_directory_field.get("1.0", tkinter.END).rstrip().split("/")[0]
     command = CREATE_DIRECTORY_COMMAND.format(absolute_directory=quote_path_correctly_outer_double_inner_single(current_directory_value + new_directory_name))
     subprocess.run(command, shell=True)
