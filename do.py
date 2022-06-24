@@ -604,7 +604,7 @@ def get_compatibility_name(name):
 def refresh():
     global current_directory_value
     # Get the current directory field value
-    current_directory_value = current_directory_field.get("1.0", tkinter.END).rstrip()
+    current_directory_value = current_directory_field.get("1.0", tkinter.END).replace("\n","").replace("\r","")
     if current_directory_value[-1] != "/":
         # Ensure that it is terminated by a "/"
         current_directory_value = current_directory_value + "/"
@@ -841,7 +841,7 @@ def on_directory_clicked(file_descriptor):
     if file_descriptor.file_name == "..":
         current_directory_value = "/" + "/".join(filter_empty_string_elements(current_directory_value.split("/"))[:-1])
     else:
-        current_directory_value = (current_directory_value + file_descriptor.file_name).rstrip()
+        current_directory_value = (current_directory_value + file_descriptor.file_name).replace("\n","").replace("\r","")
     current_directory_field.delete(1.0, tkinter.END)
     current_directory_field.insert(tkinter.END, current_directory_value)
     current_directory_list_index = 0
@@ -854,7 +854,7 @@ def on_directory_clicked(file_descriptor):
 # Filters the list of known files. Does not do a new query.
 def on_search():
     global search_file_field_value
-    search_file_field_value = search_file_field.get("1.0", tkinter.END).rstrip()    
+    search_file_field_value = search_file_field.get("1.0", tkinter.END).replace("\n","").replace("\r","")
     scroll_to_top()
     display_file_list()
     scroll_to_top()
@@ -862,7 +862,7 @@ def on_search():
 # Creates a new directory in the current directory
 def on_create_directory():
     # Remove any accidental slashes so there's no path ambiguity
-    new_directory_name = create_directory_field.get("1.0", tkinter.END).rstrip().split("/")[0]
+    new_directory_name = create_directory_field.get("1.0", tkinter.END).split("/")[0].replace("\n","").replace("\r","")
     command = CREATE_DIRECTORY_COMMAND.format(absolute_directory=quote_path_correctly_outer_double_inner_single(current_directory_value + new_directory_name))
     subprocess.run(command, shell=True)
     print("Command run: {command}".format(command=command))
