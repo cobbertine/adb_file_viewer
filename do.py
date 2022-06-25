@@ -7,10 +7,11 @@ import os
 
 # Holds information about what files have been selected to move.
 # Persists through directory changes.
-class MoveStateInfo:
-    def __init__(self, current_directory_value, selected_files):
+class CopyMoveStateInfo:
+    def __init__(self, current_directory_value, selected_files, clicked_button):
         self.initial_working_directory = current_directory_value
         self.file_names = []
+        self.clicked_button = clicked_button
 
         for file in selected_files:
             self.file_names.append(file.file_name)
@@ -127,6 +128,7 @@ LIST_FILES_AND_DETAILS_COMMAND = " shell \"ls -la '{absolute_current_directory}'
 GET_FILE_EPOCH_COMMAND = " shell \"date -r '{absolute_file_path}' \"+%s\"\""
 GET_DIRECTORY_KBYTE_SIZE_COMMAND = " shell \"du -sd 1 -k '{absolute_directory}'\""
 PULL_FILE_COMMAND = " pull \"{absolute_file_path}\" \"{absolute_file_path_on_host}\""
+COPY_COMMAND = " shell \"cp -a '{absolute_file_path}' '{absolute_directory}'\""
 MOVE_COMMAND = " shell \"mv '{absolute_file_path}' '{absolute_directory}'\""
 DELETE_COMMAND = " shell \"rm -rf '{absolute_file_path}'\""
 CREATE_DIRECTORY_COMMAND = " shell \"mkdir -p '{absolute_directory}'\""
@@ -151,6 +153,7 @@ LIST_FILES_AND_DETAILS_COMMAND = RUNTIME_ADB_COMMAND + LIST_FILES_AND_DETAILS_CO
 GET_FILE_EPOCH_COMMAND = RUNTIME_ADB_COMMAND + GET_FILE_EPOCH_COMMAND
 GET_DIRECTORY_KBYTE_SIZE_COMMAND = RUNTIME_ADB_COMMAND + GET_DIRECTORY_KBYTE_SIZE_COMMAND
 PULL_FILE_COMMAND = RUNTIME_ADB_COMMAND + PULL_FILE_COMMAND
+COPY_COMMAND = RUNTIME_ADB_COMMAND + COPY_COMMAND
 MOVE_COMMAND = RUNTIME_ADB_COMMAND + MOVE_COMMAND
 DELETE_COMMAND = RUNTIME_ADB_COMMAND + DELETE_COMMAND
 OPEN_COMMAND = PULL_FILE_COMMAND + " && " + RUNTIME_OPEN_COMMAND
@@ -164,8 +167,9 @@ WINDOWS_CMD_INTERPRETED_SYMBOLS = ["%"]
 UP_ARROW_STRING = "↑"
 DOWN_ARROW_STRING = "↓"
 MAX_LIST_LENGTH = 15
+TOOLBAR_BUTTON_SIZE = 60
 
-move_state_info_object = None
+copy_move_state_info_object = None
 
 current_directory_value = "/sdcard/"
 search_file_field_value = ""
@@ -184,6 +188,7 @@ create_directory_button = None
 pull_button = None
 open_button = None
 delete_button = None
+copy_button = None
 move_button = None
 current_directory_field = None
 search_file_field = None
@@ -230,23 +235,25 @@ def create_toolbar():
 
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=384, weight=0)) # Current Directory TextBox
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))
-    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=64, weight=0)) # Refresh
+    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=TOOLBAR_BUTTON_SIZE, weight=0)) # Refresh
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=160, weight=0)) # Search File TextBox
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))
-    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=64, weight=0)) # Search File OK  
+    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=TOOLBAR_BUTTON_SIZE, weight=0)) # Search File OK  
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))   
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=160, weight=0)) # Create Textbox
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))   
-    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=64, weight=0)) # Create
+    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=TOOLBAR_BUTTON_SIZE, weight=0)) # Create
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))
-    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=64, weight=0)) # Pull
+    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=TOOLBAR_BUTTON_SIZE, weight=0)) # Pull
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))
-    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=64, weight=0)) # Open
+    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=TOOLBAR_BUTTON_SIZE, weight=0)) # Open
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))
-    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=64, weight=0)) # Move
+    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=TOOLBAR_BUTTON_SIZE, weight=0)) # Copy
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))
-    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=64, weight=0)) # Delete
+    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=TOOLBAR_BUTTON_SIZE, weight=0)) # Move
+    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))    
+    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=TOOLBAR_BUTTON_SIZE, weight=0)) # Delete
 
     column_index = 0
     
@@ -263,6 +270,7 @@ def create_toolbar():
     global pull_button
     global open_button
     global delete_button
+    global copy_button
     global move_button
     global current_directory_field
     global search_file_field
@@ -279,7 +287,8 @@ def create_toolbar():
     create_directory_button = tk.Button(toolbar_frame, text="Create", width=1, height=1, command=on_create_directory)
     pull_button = tk.Button(toolbar_frame, text="Pull", width=1, height=1, command=on_pull)
     open_button = tk.Button(toolbar_frame, text="Open", width=1, height=1, command=on_open)
-    move_button = tk.Button(toolbar_frame, text="Move", width=1, height=1, command=on_move)
+    copy_button = tk.Button(toolbar_frame, text="Copy", width=1, height=1, command=lambda : on_copy_or_move(COPY_COMMAND, copy_button, move_button))    
+    move_button = tk.Button(toolbar_frame, text="Move", width=1, height=1, command=lambda : on_copy_or_move(MOVE_COMMAND, move_button, copy_button))
     delete_button = tk.Button(toolbar_frame, text="Delete", width=1, height=1, command=on_delete)
     current_directory_field = tk.Text(toolbar_frame, width=1, height=1)
     current_directory_field.insert(tkinter.END, current_directory_value) # Pre-fill cwd field with default string /sdcard/
@@ -287,7 +296,7 @@ def create_toolbar():
     search_file_confirm_button = tk.Button(toolbar_frame, text="Search", width=1, height=1, command=on_search)
     create_directory_field = tk.Text(toolbar_frame, width=1, height=1)
 
-    modify_widget_states(disable_list=[pull_button, open_button, move_button, delete_button])
+    modify_widget_states(disable_list=[pull_button, open_button, copy_button, move_button, delete_button])
 
     configure_widget_array.append(lambda column_index : current_directory_field.grid(column=column_index, row=0, sticky="ew"))
     configure_widget_array.append(lambda column_index : refresh_button.grid(column=column_index, row=0, sticky="nsew"))
@@ -297,6 +306,7 @@ def create_toolbar():
     configure_widget_array.append(lambda column_index : create_directory_button.grid(column=column_index, row=0, sticky="nsew"))
     configure_widget_array.append(lambda column_index : pull_button.grid(column=column_index, row=0, sticky="nsew"))
     configure_widget_array.append(lambda column_index : open_button.grid(column=column_index, row=0, sticky="nsew"))
+    configure_widget_array.append(lambda column_index : copy_button.grid(column=column_index, row=0, sticky="nsew"))    
     configure_widget_array.append(lambda column_index : move_button.grid(column=column_index, row=0, sticky="nsew"))
     configure_widget_array.append(lambda column_index : delete_button.grid(column=column_index, row=0, sticky="nsew"))
 
@@ -490,8 +500,8 @@ def display_file_list():
     filtered_move_state_directory_list = []
     filtered_search_file_directory_list = []
 
-    # If in move state, add all unselected directories to the directory list
-    if move_state_info_object is not None:
+    # If in copy/move state, add all unselected directories to the directory list
+    if copy_move_state_info_object is not None:
         for file_descriptor in current_directory_list:
             if file_descriptor.is_directory == True and file_descriptor.is_selected == False:
                 filtered_move_state_directory_list.append(file_descriptor)
@@ -501,13 +511,13 @@ def display_file_list():
             if search_file_field_value.lower() in file_descriptor.file_name.lower():
                 filtered_search_file_directory_list.append(file_descriptor)
     
-    # If in move state...
-    if move_state_info_object is not None:
+    # If in copy/move state...
+    if copy_move_state_info_object is not None:
         # and if in search state...
         if len(search_file_field_value) > 0:
             # Only keep directories that match the search value
             filtered_move_state_directory_list = list(filter(lambda search_file_name : search_file_name in filtered_move_state_directory_list, filtered_search_file_directory_list))
-        # Set the filtered directory list to the move state directory list
+        # Set the filtered directory list to the copy/move state directory list
         filtered_current_directory_list = filtered_move_state_directory_list
     # else if in search state
     elif len(search_file_field_value) > 0:
@@ -555,7 +565,7 @@ def display_file_list():
         file_select_button = tk.Checkbutton(file_list_frame, command=(lambda current_file_descriptor, current_file_name_label : lambda : on_file_select_toggle(current_file_descriptor, current_file_name_label))(file_descriptor, file_name_label), width=1, height=1)
 
         # The ".." directory should not be selectable
-        if file_descriptor.file_name == ".." or move_state_info_object is not None:
+        if file_descriptor.file_name == ".." or copy_move_state_info_object is not None:
             modify_widget_states(disable_list=[file_select_button])
 
         configure_widget_array.append(lambda column_index : file_icon_button.grid(column=column_index, row=row_index, sticky="nsew"))
@@ -709,7 +719,7 @@ def on_file_select_toggle(file_descriptor, file_name_label):
         except:
             pass
         selected_files.add(file_descriptor)
-        modify_widget_states(enable_list=[pull_button, open_button, move_button, delete_button])
+        modify_widget_states(enable_list=[pull_button, open_button, copy_button, move_button, delete_button])
     else:
         try:
             file_name_label.config(bg="light gray")
@@ -720,7 +730,7 @@ def on_file_select_toggle(file_descriptor, file_name_label):
         except:
             pass
         if len(selected_files) == 0:
-            modify_widget_states(disable_list=[pull_button, open_button, move_button, delete_button])
+            modify_widget_states(disable_list=[pull_button, open_button, copy_button, move_button, delete_button])
 
 # Increases the current_directory_list_index if necessary.
 # Arrow down button should only be clickable if there are more files out of view.
@@ -847,9 +857,9 @@ def on_directory_clicked(file_descriptor):
     current_directory_list_index = 0
     refresh()
     # After a refresh, all selections will be cleared out which will disable all interaction buttons including the move button
-    # But if we are in a move state, then the move button must remain enabled.
-    if move_state_info_object is not None:
-        modify_widget_states(enable_list=[move_button])
+    # But if we are in a copy/move state, then the copy/move button must remain enabled.
+    if copy_move_state_info_object is not None:
+        modify_widget_states(enable_list=[copy_move_state_info_object.clicked_button])
 
 # Filters the list of known files. Does not do a new query.
 def on_search():
@@ -944,42 +954,42 @@ def on_delete():
         print("Command run: {command}".format(command=command))
     refresh()
 
-# After selecting some files, it is possible to use the move functionality
-# When clicking the move button initially, the program enters the move state, and the file view changes to only show directories
-# All other buttons except the move button are disabled.
+# After selecting some files, it is possible to use the copy/move functionality
+# When clicking the copy/move button initially, the program enters the move state, and the file view changes to only show directories
+# All other buttons except the copy/move button are disabled.
 # It is possible to navigate into different directories before finally moving the files
-# When the move button is clicked a second time, if the directory has not changed, the move state is toggled off as no move is required...
-# Selected files remain selected, and a move can be attempted again. All buttons are enabled.
-# Else, if the program is in a different directory, all selected files are moved and then the view is refreshed.
-def on_move():
-    global move_state_info_object
-    # Initial move button click...
-    if move_state_info_object is None:
-        # Save the current directory, which will be used when the actual move is done
-        # as the program will be in a different directory when the move occurs
-        move_state_info_object = MoveStateInfo(current_directory_value, selected_files)
+# When the copy/move button is clicked a second time, if the directory has not changed, the copy/move state is toggled off as no copy/move is required...
+# Selected files remain selected, and a copy/move can be attempted again. All buttons are enabled.
+# Else, if the program is in a different directory, all selected files are copied/moved and then the view is refreshed.
+def on_copy_or_move(button_command, this_button, other_button):
+    global copy_move_state_info_object
+    # Initial button click...
+    if copy_move_state_info_object is None:
+        # Save the current directory, which will be used when the actual copy/move is done
+        # as the program will be in a different directory when the copy/move occurs
+        copy_move_state_info_object = CopyMoveStateInfo(current_directory_value, selected_files, this_button)
         scroll_to_top()
         display_file_list()
         scroll_to_top()
-        modify_widget_states(disable_list=[refresh_button, create_directory_button, pull_button, open_button, delete_button])
+        modify_widget_states(disable_list=[refresh_button, create_directory_button, pull_button, open_button, delete_button, other_button])
     else:
-        # Move button clicked again but in the same directory...
-        if move_state_info_object.initial_working_directory == current_directory_value:
+        # Copy/move button clicked again but in the same directory...
+        if copy_move_state_info_object.initial_working_directory == current_directory_value:
             for file in current_directory_list:
-                if file.file_name in move_state_info_object.file_names:
+                if file.file_name in copy_move_state_info_object.file_names:
                     file.select()
-            move_state_info_object = None
+            copy_move_state_info_object = None
             display_file_list()
-            modify_widget_states(enable_list=[refresh_button, create_directory_button, pull_button, open_button, delete_button])
+            modify_widget_states(enable_list=[refresh_button, create_directory_button, pull_button, open_button, delete_button, other_button])
         else:
-            # Move button clicked again, different directory
-            for file_name in move_state_info_object.file_names:
-                command = MOVE_COMMAND.format(absolute_file_path=quote_path_correctly_outer_double_inner_single(move_state_info_object.initial_working_directory + file_name), absolute_directory=quote_path_correctly_outer_double_inner_single(current_directory_value))
+            # Copy/move button clicked again, different directory
+            for file_name in copy_move_state_info_object.file_names:
+                command = button_command.format(absolute_file_path=quote_path_correctly_outer_double_inner_single(copy_move_state_info_object.initial_working_directory + file_name), absolute_directory=quote_path_correctly_outer_double_inner_single(current_directory_value))
                 subprocess.run(command, shell=True)
                 print("Command run: {command}".format(command=command))
-            move_state_info_object = None
+            copy_move_state_info_object = None
             refresh()
-            modify_widget_states(enable_list=[refresh_button, create_directory_button], disable_list=[pull_button, open_button, move_button, delete_button])
+            modify_widget_states(enable_list=[refresh_button, create_directory_button], disable_list=[pull_button, open_button, copy_button, move_button, delete_button])
 
 create_toolbar()
 create_separator()
