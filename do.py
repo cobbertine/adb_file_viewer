@@ -5,7 +5,7 @@ import platform
 import subprocess
 import os
 
-# Holds information about what files have been selected to move.
+# Holds information about what files have been selected to copy/move.
 # Persists through directory changes.
 class CopyMoveStateInfo:
     def __init__(self, current_directory_value, selected_files, clicked_button):
@@ -491,7 +491,7 @@ def display_file_list():
         column_index = column_index + 1
 
     # The current directory list may need to be filtered depending on the state of the program
-    # If the program is in a "Move file state", then only directories should be presented
+    # If the program is in a "Copy/Move file state", then only directories should be presented
     # If the program is in a "Search file state", only valid files should be presented
     # If both states are active, then only valid directories should be presented
 
@@ -584,8 +584,8 @@ def display_file_list():
         file_select_button.deselect()
         file_descriptor.checkbox_object = file_select_button
 
-        # Useful when the move button is clicked in the same directoy as it started,
-        # Thereby goggling off the move state but presenting to the user what files they still have selected.
+        # Useful when the copy/move button is clicked in the same directoy as it started,
+        # Thereby toggling off the copy/move state but presenting to the user what files they still have selected.
         if file_descriptor.is_selected == True:
             file_descriptor.select()
 
@@ -856,7 +856,7 @@ def on_directory_clicked(file_descriptor):
     current_directory_field.insert(tkinter.END, current_directory_value)
     current_directory_list_index = 0
     refresh()
-    # After a refresh, all selections will be cleared out which will disable all interaction buttons including the move button
+    # After a refresh, all selections will be cleared out which will disable all interaction buttons including the copy/move button
     # But if we are in a copy/move state, then the copy/move button must remain enabled.
     if copy_move_state_info_object is not None:
         modify_widget_states(enable_list=[copy_move_state_info_object.clicked_button])
@@ -955,7 +955,7 @@ def on_delete():
     refresh()
 
 # After selecting some files, it is possible to use the copy/move functionality
-# When clicking the copy/move button initially, the program enters the move state, and the file view changes to only show directories
+# When clicking the copy/move button initially, the program enters the copy/move state, and the file view changes to only show directories
 # All other buttons except the copy/move button are disabled.
 # It is possible to navigate into different directories before finally moving the files
 # When the copy/move button is clicked a second time, if the directory has not changed, the copy/move state is toggled off as no copy/move is required...
