@@ -182,18 +182,19 @@ current_directory_list_index = 0
 selected_files = set()
 filtered_current_directory_list = []
 
-# Toolbar Buttons
-refresh_button = None
-create_directory_button = None
-pull_button = None
-open_button = None
-delete_button = None
-copy_button = None
-move_button = None
+# Toolbar Elements
 current_directory_field = None
+refresh_button = None
 search_file_field = None
 search_file_confirm_button = None
 create_directory_field = None
+create_directory_button = None
+
+pull_button = None
+open_button = None
+copy_button = None
+move_button = None
+delete_button = None
 #
 
 # Sort Buttons
@@ -235,15 +236,15 @@ def create_toolbar():
 
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=384, weight=0)) # Current Directory TextBox
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))
-    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=TOOLBAR_BUTTON_SIZE, weight=0)) # Refresh
+    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=TOOLBAR_BUTTON_SIZE, weight=0)) # Refresh Directory
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=160, weight=0)) # Search File TextBox
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))
-    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=TOOLBAR_BUTTON_SIZE, weight=0)) # Search File OK  
+    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=TOOLBAR_BUTTON_SIZE, weight=0)) # Search File Confirm  
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))   
-    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=160, weight=0)) # Create Textbox
+    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=160, weight=0)) # Create Folder Textbox
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))   
-    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=TOOLBAR_BUTTON_SIZE, weight=0)) # Create
+    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=TOOLBAR_BUTTON_SIZE, weight=0)) # Create Directory Confirm
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=TOOLBAR_BUTTON_SIZE, weight=0)) # Pull
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))
@@ -265,17 +266,18 @@ def create_toolbar():
     toolbar_frame.grid_propagate(0) # Should stop any resizing based on the size of the grid and added widgets
     toolbar_frame.pack()
 
-    global refresh_button
-    global create_directory_button
-    global pull_button
-    global open_button
-    global delete_button
-    global copy_button
-    global move_button
     global current_directory_field
+    global refresh_button
     global search_file_field
     global search_file_confirm_button
     global create_directory_field
+    global create_directory_button
+
+    global pull_button
+    global open_button
+    global copy_button
+    global move_button
+    global delete_button    
 
     configure_widget_array = []
 
@@ -283,24 +285,28 @@ def create_toolbar():
 
     # Similar logic to above with configuring the widgets by using an array of functions, thereby allowing easy additions and removals
 
+    current_directory_field = tk.Text(toolbar_frame, width=1, height=1)
+    current_directory_field.insert(tkinter.END, current_directory_value) # Pre-fill cwd field with default string /sdcard/
+    current_directory_field.bind("<Return>", lambda event : on_enter_in_text_field(current_directory_field, refresh))
+    current_directory_field.bind("<KeyRelease>", lambda event : remove_newlines_in_text_field(current_directory_field))  
     refresh_button = tk.Button(toolbar_frame, text="Refresh", width=1, height=1, command=refresh)
+
+    search_file_field = tk.Text(toolbar_frame, width=1, height=1)
+    search_file_field.bind("<Return>", lambda event : on_enter_in_text_field(search_file_field, on_search))
+    search_file_field.bind("<KeyRelease>", lambda event : remove_newlines_in_text_field(search_file_field))    
+    search_file_confirm_button = tk.Button(toolbar_frame, text="Search", width=1, height=1, command=on_search)    
+
+    create_directory_field = tk.Text(toolbar_frame, width=1, height=1)
+    create_directory_field.bind("<Return>", lambda event : on_enter_in_text_field(create_directory_field, on_create_directory))
+    create_directory_field.bind("<KeyRelease>", lambda event : remove_newlines_in_text_field(create_directory_field))  
     create_directory_button = tk.Button(toolbar_frame, text="Create", width=1, height=1, command=on_create_directory)
+
+    
     pull_button = tk.Button(toolbar_frame, text="Pull", width=1, height=1, command=on_pull)
     open_button = tk.Button(toolbar_frame, text="Open", width=1, height=1, command=on_open)
     copy_button = tk.Button(toolbar_frame, text="Copy", width=1, height=1, command=lambda : on_copy_or_move(COPY_COMMAND, copy_button, move_button))    
     move_button = tk.Button(toolbar_frame, text="Move", width=1, height=1, command=lambda : on_copy_or_move(MOVE_COMMAND, move_button, copy_button))
-    delete_button = tk.Button(toolbar_frame, text="Delete", width=1, height=1, command=on_delete)
-    current_directory_field = tk.Text(toolbar_frame, width=1, height=1)
-    current_directory_field.insert(tkinter.END, current_directory_value) # Pre-fill cwd field with default string /sdcard/
-    current_directory_field.bind("<Return>", lambda event : on_enter_in_text_field(current_directory_field, refresh))
-    current_directory_field.bind("<KeyRelease>", lambda event : remove_newlines_in_text_field(current_directory_field))    
-    search_file_field = tk.Text(toolbar_frame, width=1, height=1)
-    search_file_field.bind("<Return>", lambda event : on_enter_in_text_field(search_file_field, on_search))
-    search_file_field.bind("<KeyRelease>", lambda event : remove_newlines_in_text_field(search_file_field))
-    search_file_confirm_button = tk.Button(toolbar_frame, text="Search", width=1, height=1, command=on_search)
-    create_directory_field = tk.Text(toolbar_frame, width=1, height=1)
-    create_directory_field.bind("<Return>", lambda event : on_enter_in_text_field(create_directory_field, on_create_directory))
-    create_directory_field.bind("<KeyRelease>", lambda event : remove_newlines_in_text_field(create_directory_field))    
+    delete_button = tk.Button(toolbar_frame, text="Delete", width=1, height=1, command=on_delete)    
 
     modify_widget_states(disable_list=[pull_button, open_button, copy_button, move_button, delete_button])
 
