@@ -218,8 +218,8 @@ root.resizable(0, 0)
 ####################
 # Initialisations, called once...
 
-# Create a frame to hold most of the buttons used to interact with the file system.
-def create_toolbar():
+# Create a frame to hold elements that are a combination of a field and a button, used to interact with the file system
+def create_toolbar_row_0():
 
     # Configure grid sizes
 
@@ -245,16 +245,6 @@ def create_toolbar():
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=160, weight=0)) # Create Folder Textbox
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))   
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=TOOLBAR_BUTTON_SIZE, weight=0)) # Create Directory Confirm
-    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))
-    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=TOOLBAR_BUTTON_SIZE, weight=0)) # Pull
-    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))
-    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=TOOLBAR_BUTTON_SIZE, weight=0)) # Open
-    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))
-    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=TOOLBAR_BUTTON_SIZE, weight=0)) # Copy
-    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))
-    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=TOOLBAR_BUTTON_SIZE, weight=0)) # Move
-    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))    
-    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=TOOLBAR_BUTTON_SIZE, weight=0)) # Delete
 
     column_index = 0
     
@@ -272,12 +262,6 @@ def create_toolbar():
     global search_file_confirm_button
     global create_directory_field
     global create_directory_button
-
-    global pull_button
-    global open_button
-    global copy_button
-    global move_button
-    global delete_button    
 
     configure_widget_array = []
 
@@ -301,6 +285,66 @@ def create_toolbar():
     create_directory_field.bind("<KeyRelease>", lambda event : remove_newlines_in_text_field(create_directory_field))  
     create_directory_button = tk.Button(toolbar_frame, text="Create", width=1, height=1, command=on_create_directory)
 
+    configure_widget_array.append(lambda column_index : current_directory_field.grid(column=column_index, row=0, sticky="ew"))
+    configure_widget_array.append(lambda column_index : refresh_button.grid(column=column_index, row=0, sticky="nsew"))
+    configure_widget_array.append(lambda column_index : search_file_field.grid(column=column_index, row=0, sticky="ew"))
+    configure_widget_array.append(lambda column_index : search_file_confirm_button.grid(column=column_index, row=0, sticky="nsew"))    
+    configure_widget_array.append(lambda column_index : create_directory_field.grid(column=column_index, row=0, sticky="ew"))
+    configure_widget_array.append(lambda column_index : create_directory_button.grid(column=column_index, row=0, sticky="nsew"))
+
+    column_index = 0
+
+    for configure_widget_function in configure_widget_array:
+        configure_widget_function(column_index)
+        column_index = column_index + 2 # Skip by 2 as every odd element is padding
+
+# Create a frame to hold elements that are just buttons, used to interact with the file system
+def create_toolbar_row_1():
+    # Configure grid sizes
+
+    toolbar_frame = tk.Frame(root, bg="red", width=1280, height=64)
+
+    toolbar_frame_column_configure_array = []
+
+    # By configuring the grid using an array of functions utilising an index,
+    # As opposed to hard-coding,
+    # It alows for very easy additions and removals of configuration options,
+    # Without having to change everything before or after the addition or removal.
+
+    # A weight of 0 should enforce the size specified
+
+    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=504, weight=0)) # Left-Padding
+    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=TOOLBAR_BUTTON_SIZE, weight=0)) # Pull
+    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))
+    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=TOOLBAR_BUTTON_SIZE, weight=0)) # Open
+    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))
+    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=TOOLBAR_BUTTON_SIZE, weight=0)) # Copy
+    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))
+    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=TOOLBAR_BUTTON_SIZE, weight=0)) # Move
+    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))    
+    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=TOOLBAR_BUTTON_SIZE, weight=0)) # Delete
+
+    column_index = 0
+    
+    for toolbar_configure_column_function in toolbar_frame_column_configure_array:
+        toolbar_configure_column_function(column_index)
+        column_index = column_index + 1
+
+    toolbar_frame.rowconfigure(0, minsize=64, weight=0)
+    toolbar_frame.grid_propagate(0) # Should stop any resizing based on the size of the grid and added widgets
+    toolbar_frame.pack()
+
+    global pull_button
+    global open_button
+    global copy_button
+    global move_button
+    global delete_button    
+
+    configure_widget_array = []
+
+    # A size of 1, followed by the use of the sticky attribute will ensure the widget fits the configured cell fully.
+
+    # Similar logic to above with configuring the widgets by using an array of functions, thereby allowing easy additions and removals
     
     pull_button = tk.Button(toolbar_frame, text="Pull", width=1, height=1, command=on_pull)
     open_button = tk.Button(toolbar_frame, text="Open", width=1, height=1, command=on_open)
@@ -310,19 +354,13 @@ def create_toolbar():
 
     modify_widget_states(disable_list=[pull_button, open_button, copy_button, move_button, delete_button])
 
-    configure_widget_array.append(lambda column_index : current_directory_field.grid(column=column_index, row=0, sticky="ew"))
-    configure_widget_array.append(lambda column_index : refresh_button.grid(column=column_index, row=0, sticky="nsew"))
-    configure_widget_array.append(lambda column_index : search_file_field.grid(column=column_index, row=0, sticky="ew"))
-    configure_widget_array.append(lambda column_index : search_file_confirm_button.grid(column=column_index, row=0, sticky="nsew"))    
-    configure_widget_array.append(lambda column_index : create_directory_field.grid(column=column_index, row=0, sticky="ew"))
-    configure_widget_array.append(lambda column_index : create_directory_button.grid(column=column_index, row=0, sticky="nsew"))
     configure_widget_array.append(lambda column_index : pull_button.grid(column=column_index, row=0, sticky="nsew"))
     configure_widget_array.append(lambda column_index : open_button.grid(column=column_index, row=0, sticky="nsew"))
     configure_widget_array.append(lambda column_index : copy_button.grid(column=column_index, row=0, sticky="nsew"))    
     configure_widget_array.append(lambda column_index : move_button.grid(column=column_index, row=0, sticky="nsew"))
     configure_widget_array.append(lambda column_index : delete_button.grid(column=column_index, row=0, sticky="nsew"))
 
-    column_index = 0
+    column_index = 1
 
     for configure_widget_function in configure_widget_array:
         configure_widget_function(column_index)
@@ -330,9 +368,9 @@ def create_toolbar():
 
 # A seperator between frames
 
-def create_separator():
-    seperator_frame = tk.Frame(root, bg="black", width=1280, height=16)
-    seperator_frame.rowconfigure(0, minsize=16, weight=0)
+def create_separator(separation_size, separation_colour_string):
+    seperator_frame = tk.Frame(root, bg=separation_colour_string, width=1280, height=separation_size)
+    seperator_frame.rowconfigure(0, minsize=separation_size, weight=0)
     seperator_frame.grid_propagate(0)
     seperator_frame.pack()
 
@@ -1012,10 +1050,12 @@ def remove_newlines_in_text_field(target_text_field):
     target_text_field.delete(1.0, tkinter.END)
     target_text_field.insert(tkinter.END, text_field_value)    
 
-create_toolbar()
-create_separator()
+create_toolbar_row_0()
+create_separator(4, "black")
+create_toolbar_row_1()
+create_separator(16, "black")
 create_sort_bar()
-create_separator()
+create_separator(16, "black")
 
 # https://stackoverflow.com/questions/17355902/tkinter-binding-mousewheel-to-scrollbar
 if CURRENT_OS == "Linux":
