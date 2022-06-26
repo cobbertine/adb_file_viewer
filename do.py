@@ -346,7 +346,7 @@ def create_sort_bar():
     sort_frame_column_configure_array.append(lambda column_index : sort_frame.columnconfigure(column_index, minsize=128, weight=0)) # File Size
     sort_frame_column_configure_array.append(lambda column_index : sort_frame.columnconfigure(column_index, minsize=12, weight=0))
     sort_frame_column_configure_array.append(lambda column_index : sort_frame.columnconfigure(column_index, minsize=32, weight=0)) # Select/Clear All
-    sort_frame_column_configure_array.append(lambda column_index : sort_frame.columnconfigure(column_index, minsize=24, weight=0))
+    sort_frame_column_configure_array.append(lambda column_index : sort_frame.columnconfigure(column_index, minsize=12, weight=0))
     sort_frame_column_configure_array.append(lambda column_index : sort_frame.columnconfigure(column_index, minsize=32, weight=0)) # Up Button
     sort_frame_column_configure_array.append(lambda column_index : sort_frame.columnconfigure(column_index, minsize=4, weight=0))
     sort_frame_column_configure_array.append(lambda column_index : sort_frame.columnconfigure(column_index, minsize=32, weight=0)) # Down Button  
