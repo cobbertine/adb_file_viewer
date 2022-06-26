@@ -292,9 +292,15 @@ def create_toolbar():
     delete_button = tk.Button(toolbar_frame, text="Delete", width=1, height=1, command=on_delete)
     current_directory_field = tk.Text(toolbar_frame, width=1, height=1)
     current_directory_field.insert(tkinter.END, current_directory_value) # Pre-fill cwd field with default string /sdcard/
+    current_directory_field.bind("<Return>", lambda event : on_enter_in_text_field(current_directory_field, refresh))
+    current_directory_field.bind("<KeyRelease>", lambda event : remove_newlines_in_text_field(current_directory_field))    
     search_file_field = tk.Text(toolbar_frame, width=1, height=1)
+    search_file_field.bind("<Return>", lambda event : on_enter_in_text_field(search_file_field, on_search))
+    search_file_field.bind("<KeyRelease>", lambda event : remove_newlines_in_text_field(search_file_field))
     search_file_confirm_button = tk.Button(toolbar_frame, text="Search", width=1, height=1, command=on_search)
     create_directory_field = tk.Text(toolbar_frame, width=1, height=1)
+    create_directory_field.bind("<Return>", lambda event : on_enter_in_text_field(create_directory_field, on_create_directory))
+    create_directory_field.bind("<KeyRelease>", lambda event : remove_newlines_in_text_field(create_directory_field))    
 
     modify_widget_states(disable_list=[pull_button, open_button, copy_button, move_button, delete_button])
 
@@ -340,7 +346,7 @@ def create_sort_bar():
     sort_frame_column_configure_array.append(lambda column_index : sort_frame.columnconfigure(column_index, minsize=128, weight=0)) # File Size
     sort_frame_column_configure_array.append(lambda column_index : sort_frame.columnconfigure(column_index, minsize=12, weight=0))
     sort_frame_column_configure_array.append(lambda column_index : sort_frame.columnconfigure(column_index, minsize=32, weight=0)) # Select/Clear All
-    sort_frame_column_configure_array.append(lambda column_index : sort_frame.columnconfigure(column_index, minsize=12, weight=0))
+    sort_frame_column_configure_array.append(lambda column_index : sort_frame.columnconfigure(column_index, minsize=24, weight=0))
     sort_frame_column_configure_array.append(lambda column_index : sort_frame.columnconfigure(column_index, minsize=32, weight=0)) # Up Button
     sort_frame_column_configure_array.append(lambda column_index : sort_frame.columnconfigure(column_index, minsize=4, weight=0))
     sort_frame_column_configure_array.append(lambda column_index : sort_frame.columnconfigure(column_index, minsize=32, weight=0)) # Down Button  
@@ -990,6 +996,15 @@ def on_copy_or_move(button_command, this_button, other_button):
             copy_move_state_info_object = None
             refresh()
             modify_widget_states(enable_list=[refresh_button, create_directory_button], disable_list=[pull_button, open_button, copy_button, move_button, delete_button])
+
+def on_enter_in_text_field(target_text_field, text_field_button_command):
+    remove_newlines_in_text_field(target_text_field)
+    text_field_button_command()
+
+def remove_newlines_in_text_field(target_text_field):
+    text_field_value = target_text_field.get("1.0", tkinter.END).replace("\n","").replace("\r","")
+    target_text_field.delete(1.0, tkinter.END)
+    target_text_field.insert(tkinter.END, text_field_value)    
 
 create_toolbar()
 create_separator()
