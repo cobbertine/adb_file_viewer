@@ -227,7 +227,7 @@ file_scrolldown_button = None
 
 root = tk.Tk()
 
-root.geometry("1280x720")
+root.geometry("1280x788")
 root.title('ADB File Viewer')
 root.resizable(0, 0)
 
@@ -1136,12 +1136,14 @@ def sanitisation_thread_action():
             remove_newlines_in_text_field(sanitisation_thread_state.target_text_field, sanitisation_thread_state.target_text_field_cursor)
             sanitisation_thread_state.is_complete = True
 
-create_toolbar_row_0()
+create_toolbar_row_0() # 64
 create_separator(4, "black")
-create_toolbar_row_1()
+create_toolbar_row_1() # 64
 create_separator(16, "black")
-create_sort_bar()
+create_sort_bar() # 32
 create_separator(16, "black")
+# 592 (List of 15 files, each 32 pixels high, with a separator of 8 pixels high between each one, with no separator after the last file)
+# 64 + 4 + 64 + 16 + 32 + 16 + 592 = 788 pixels high
 
 # https://stackoverflow.com/questions/17355902/tkinter-binding-mousewheel-to-scrollbar
 if CURRENT_OS == "Linux":
