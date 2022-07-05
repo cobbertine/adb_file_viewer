@@ -4,6 +4,8 @@ import datetime
 import platform
 import subprocess
 import os
+import threading
+import time
 
 # Holds information about what files have been selected to copy/move.
 # Persists through directory changes.
@@ -87,6 +89,13 @@ class FileDescriptor:
         self.is_selected = False
         self.checkbox_object = None
 
+class SanitisationThreadState:
+    def __init__(self, target_text_field, target_text_field_cursor):
+        self.is_complete = False
+        self.is_interrupted = False
+        self.target_text_field = target_text_field
+        self.target_text_field_cursor = target_text_field_cursor
+
 CURRENT_OS = platform.system()
 
 # Command constants
@@ -133,6 +142,7 @@ MOVE_COMMAND = " shell \"mv '{absolute_file_path}' '{absolute_directory}'\""
 DELETE_COMMAND = " shell \"rm -rf '{absolute_file_path}'\""
 CREATE_DIRECTORY_COMMAND = " shell \"mkdir -p '{absolute_directory}'\""
 GET_ALL_FILES_IN_DIRECTORY_RECURSIVELY_COMMAND = " shell \"find '{absolute_directory}' -type f\""
+RENAME_COMMAND = " shell \"mv '{absolute_file_path}' '{absolute_new_file_path}'\""
 
 FILE_LIST_DETAIL_DATE_INDEX = 5
 FILE_LIST_DETAIL_TIME_INDEX = 6
@@ -159,6 +169,7 @@ DELETE_COMMAND = RUNTIME_ADB_COMMAND + DELETE_COMMAND
 OPEN_COMMAND = PULL_FILE_COMMAND + " && " + RUNTIME_OPEN_COMMAND
 CREATE_DIRECTORY_COMMAND = RUNTIME_ADB_COMMAND + CREATE_DIRECTORY_COMMAND
 GET_ALL_FILES_IN_DIRECTORY_RECURSIVELY_COMMAND = RUNTIME_ADB_COMMAND + GET_ALL_FILES_IN_DIRECTORY_RECURSIVELY_COMMAND
+RENAME_COMMAND = RUNTIME_ADB_COMMAND + RENAME_COMMAND
 
 # Constants
 ILLEGAL_WINDOWS_CHARACTERS = ["<", ">", ":", "\"", "/", "\\", "|", "?", "*"]
@@ -183,12 +194,17 @@ selected_files = set()
 filtered_current_directory_list = []
 
 # Toolbar Elements
+sanitisation_thread_state = None
+sanitisation_thread_lock = threading.Lock()
+
 current_directory_field = None
 refresh_button = None
 search_file_field = None
 search_file_confirm_button = None
 create_directory_field = None
 create_directory_button = None
+rename_file_field = None
+rename_file_button = None
 
 pull_button = None
 open_button = None
@@ -238,13 +254,17 @@ def create_toolbar_row_0():
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=TOOLBAR_BUTTON_SIZE, weight=0)) # Refresh Directory
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))
-    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=160, weight=0)) # Search File TextBox
+    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=180, weight=0)) # Search File TextBox
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=TOOLBAR_BUTTON_SIZE, weight=0)) # Search File Confirm  
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))   
-    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=160, weight=0)) # Create Folder Textbox
+    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=180, weight=0)) # Create Folder Textbox
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))   
     toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=TOOLBAR_BUTTON_SIZE, weight=0)) # Create Directory Confirm
+    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))
+    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=180, weight=0)) # Rename File Textbox
+    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=8, weight=0))   
+    toolbar_frame_column_configure_array.append(lambda column_index : toolbar_frame.columnconfigure(column_index, minsize=TOOLBAR_BUTTON_SIZE, weight=0)) # Rename File Confirm    
 
     column_index = 0
     
@@ -262,6 +282,8 @@ def create_toolbar_row_0():
     global search_file_confirm_button
     global create_directory_field
     global create_directory_button
+    global rename_file_field
+    global rename_file_button
 
     configure_widget_array = []
 
@@ -272,18 +294,22 @@ def create_toolbar_row_0():
     current_directory_field = tk.Text(toolbar_frame, width=1, height=1)
     current_directory_field.insert(tkinter.END, current_directory_value) # Pre-fill cwd field with default string /sdcard/
     current_directory_field.bind("<Return>", lambda event : on_enter_in_text_field(current_directory_field, refresh))
-    current_directory_field.bind("<KeyRelease>", lambda event : remove_newlines_in_text_field(current_directory_field))  
     refresh_button = tk.Button(toolbar_frame, text="Refresh", width=1, height=1, command=refresh)
 
     search_file_field = tk.Text(toolbar_frame, width=1, height=1)
     search_file_field.bind("<Return>", lambda event : on_enter_in_text_field(search_file_field, on_search))
-    search_file_field.bind("<KeyRelease>", lambda event : remove_newlines_in_text_field(search_file_field))    
     search_file_confirm_button = tk.Button(toolbar_frame, text="Search", width=1, height=1, command=on_search)    
 
     create_directory_field = tk.Text(toolbar_frame, width=1, height=1)
     create_directory_field.bind("<Return>", lambda event : on_enter_in_text_field(create_directory_field, on_create_directory))
-    create_directory_field.bind("<KeyRelease>", lambda event : remove_newlines_in_text_field(create_directory_field))  
     create_directory_button = tk.Button(toolbar_frame, text="Create", width=1, height=1, command=on_create_directory)
+
+    rename_file_field = tk.Text(toolbar_frame, width=1, height=1)
+    rename_file_field.bind("<Return>", lambda event : on_enter_in_text_field(rename_file_field, on_rename))
+    rename_file_button = tk.Button(toolbar_frame, text="Rename", width=1, height=1, command=on_rename)    
+
+    modify_widget_states(disable_list=[rename_file_button])
+    rename_file_field["state"] = "disabled"
 
     configure_widget_array.append(lambda column_index : current_directory_field.grid(column=column_index, row=0, sticky="ew"))
     configure_widget_array.append(lambda column_index : refresh_button.grid(column=column_index, row=0, sticky="nsew"))
@@ -291,6 +317,8 @@ def create_toolbar_row_0():
     configure_widget_array.append(lambda column_index : search_file_confirm_button.grid(column=column_index, row=0, sticky="nsew"))    
     configure_widget_array.append(lambda column_index : create_directory_field.grid(column=column_index, row=0, sticky="ew"))
     configure_widget_array.append(lambda column_index : create_directory_button.grid(column=column_index, row=0, sticky="nsew"))
+    configure_widget_array.append(lambda column_index : rename_file_field.grid(column=column_index, row=0, sticky="ew"))
+    configure_widget_array.append(lambda column_index : rename_file_button.grid(column=column_index, row=0, sticky="nsew"))    
 
     column_index = 0
 
@@ -782,6 +810,8 @@ def on_file_select_toggle(file_descriptor, file_name_label):
         if len(selected_files) == 0:
             modify_widget_states(disable_list=[pull_button, open_button, copy_button, move_button, delete_button])
 
+    update_rename_field_and_state()
+
 # Increases the current_directory_list_index if necessary.
 # Arrow down button should only be clickable if there are more files out of view.
 def on_arrow_down():
@@ -1041,14 +1071,70 @@ def on_copy_or_move(button_command, this_button, other_button):
             refresh()
             modify_widget_states(enable_list=[refresh_button, create_directory_button], disable_list=[pull_button, open_button, copy_button, move_button, delete_button])
 
-def on_enter_in_text_field(target_text_field, text_field_button_command):
-    remove_newlines_in_text_field(target_text_field)
-    text_field_button_command()
+# Called when a file selection occurrs.
+def update_rename_field_and_state():
+    rename_file_field.delete(1.0, tkinter.END)    
 
-def remove_newlines_in_text_field(target_text_field):
+    if len(selected_files) == 1:
+        modify_widget_states(enable_list=[rename_file_button])
+        rename_file_field["state"] = "normal"
+        selected_file_name = list(selected_files)[0].file_name.replace("\n","").replace("\r","")
+        rename_file_field.insert(tkinter.END, selected_file_name)
+    else:
+        modify_widget_states(disable_list=[rename_file_button])
+        rename_file_field["state"] = "disabled"
+
+# Called when rename button or field gets a <Return>
+def on_rename():
+    new_file_name = rename_file_field.get("1.0", tkinter.END).replace("\n","").replace("\r","").replace("/","")
+    selected_file_descriptor = list(selected_files)[0]
+    command = RENAME_COMMAND.format(absolute_file_path=quote_path_correctly_outer_double_inner_single(selected_file_descriptor.file_absolute_directory_path + selected_file_descriptor.file_name), absolute_new_file_path=quote_path_correctly_outer_double_inner_single(selected_file_descriptor.file_absolute_directory_path + new_file_name))
+    subprocess.run(command, shell=True)    
+    print("Command run: {command}".format(command=command))
+    selected_file_descriptor.file_name = new_file_name
+    selected_file_descriptor.file_name_compat = get_compatibility_name(selected_file_descriptor.file_name) # For Windows
+    redraw()
+
+def remove_newlines_in_text_field(target_text_field, target_text_field_cursor):
     text_field_value = target_text_field.get("1.0", tkinter.END).replace("\n","").replace("\r","")
     target_text_field.delete(1.0, tkinter.END)
     target_text_field.insert(tkinter.END, text_field_value)    
+    target_text_field.mark_set(tk.INSERT, target_text_field_cursor)
+
+# When the enter key is pressed in a field, the relevant function is called
+# But before that, it's important to remove any newlines which may exist
+# So assuming a user types in a field, and hits the enter key once, the following occurs: 
+# The field is initially sanitised, and the text in that field is used in the relevant function correctly
+# However ... Once all the actions immediately following the enter key press event are completed, tk adds a newline to the text field
+# As a result, the user will see a blank textfield because it has gone onto a newline
+# If the user hits the enter key again, or the button, the program will still function correctly: The field will be sanitised, and the text in that field is used in the relevant function correctly like before.
+# The issue is as follows: The newline character is added after the keydown event is handled, resulting in an unintented final visual state
+# Therefore, we have to create a thread that "waits" some small period of time after the relevant function has returned (such that hopefully the undesired newline character has been added) and sanitises the field again.
+def on_enter_in_text_field(target_text_field, text_field_button_command):
+    global sanitisation_thread_state
+    with sanitisation_thread_lock:
+        if sanitisation_thread_state is not None:
+            if sanitisation_thread_state.is_complete == False:
+                sanitisation_thread_state.is_interrupted = True
+                # Complete the pending thread's job immediately.
+                remove_newlines_in_text_field(sanitisation_thread_state.target_text_field, sanitisation_thread_state.target_text_field_cursor)
+    # Remove any current newlines, just in case
+    target_text_field_cursor = target_text_field.index(tk.INSERT)
+    remove_newlines_in_text_field(target_text_field, target_text_field_cursor)
+    # Call the action associated with the field/button combo
+    text_field_button_command()
+    # Create a thread that will remove any newlines produced once the enter key is lifted or if it is continously held down.
+    sanitisation_thread_state = SanitisationThreadState(target_text_field, target_text_field_cursor)
+    sanitisation_thread_object = threading.Thread(target=sanitisation_thread_action)
+    sanitisation_thread_object.isDaemon = True
+    sanitisation_thread_object.start()
+
+def sanitisation_thread_action():
+    time.sleep(1)
+    with sanitisation_thread_lock:
+        if sanitisation_thread_state.is_interrupted == False:
+            remove_newlines_in_text_field(sanitisation_thread_state.target_text_field, sanitisation_thread_state.target_text_field_cursor)
+            sanitisation_thread_state.is_complete = True
 
 create_toolbar_row_0()
 create_separator(4, "black")
