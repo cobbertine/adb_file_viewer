@@ -800,7 +800,7 @@ def on_file_select_toggle(file_descriptor, file_name_label):
         modify_widget_states(enable_list=[pull_button, open_button, copy_button, move_button, delete_button])
     else:
         try:
-            file_name_label.config(bg="light gray")
+            file_name_label.config(bg="#d9d9d9")
         except:
             pass
         try:
