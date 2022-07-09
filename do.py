@@ -637,6 +637,8 @@ def display_file_list():
             # Double lambda for on_directory_clicked so this file is passed to the function correctly
             file_name_label = tk.Button(file_list_frame, text=file_descriptor.file_name, width=1, height=1, command=(lambda current_file_descriptor : lambda : on_directory_clicked(current_file_descriptor))(file_descriptor))
 
+        file_name_label.config(bg="#f0f0f0")
+
         file_datetime_label = tk.Label(file_list_frame, text=file_descriptor.date_time, width=1, height=1)
         file_filesize_label = tk.Label(file_list_frame, text=file_descriptor.file_size, width=1, height=1)
         # Double lambda for on_file_select_toggle, so this file and its label are passed to the function correctly
@@ -800,7 +802,7 @@ def on_file_select_toggle(file_descriptor, file_name_label):
         modify_widget_states(enable_list=[pull_button, open_button, copy_button, move_button, delete_button])
     else:
         try:
-            file_name_label.config(bg="#d9d9d9")
+            file_name_label.config(bg="#f0f0f0")
         except:
             pass
         try:
@@ -1059,7 +1061,9 @@ def on_copy_or_move(button_command, this_button, other_button):
                 if file.file_name in copy_move_state_info_object.file_names:
                     file.select()
             copy_move_state_info_object = None
+            scroll_to_top()
             display_file_list()
+            scroll_to_top()
             modify_widget_states(enable_list=[refresh_button, create_directory_button, pull_button, open_button, delete_button, other_button])
         else:
             # Copy/move button clicked again, different directory
