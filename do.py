@@ -6,6 +6,7 @@ import subprocess
 import os
 import threading
 import time
+import random
 
 # Holds information about what files have been selected to copy/move.
 # Persists through directory changes.
@@ -89,10 +90,14 @@ class FileDescriptor:
         self.is_selected = False
         self.checkbox_object = None
 
-class SanitisationThreadState:
-    def __init__(self, target_text_field, target_text_field_cursor):
+class CustomThreadState:
+    def __init__(self):
         self.is_complete = False
         self.is_interrupted = False
+
+class SanitisationThreadState(CustomThreadState):
+    def __init__(self, target_text_field, target_text_field_cursor):
+        CustomThreadState.__init__(self)
         self.target_text_field = target_text_field
         self.target_text_field_cursor = target_text_field_cursor
 
@@ -484,15 +489,19 @@ def get_file_list():
 
     # Run a detailed ls command to retrieve information such as file type, size and date modified
     command = LIST_FILES_AND_DETAILS_COMMAND.format(absolute_current_directory=quote_path_correctly_outer_double_inner_single(current_directory_value))
+    popup_destructor = create_command_running_popup()
     result = subprocess.run(command, capture_output=True, text=True, shell=True)
     print("Command run: {command}".format(command=command))
+    popup_destructor()
     # The first 3 elements after splitting by \n are total size, ".", and "..", none of which we want.
     file_list_details = filter_empty_string_elements(result.stdout.split("\n"))[LS_DETAIL_START_INDEX:]
 
     # Run a simple ls command to just get file names - helps when dealing with a file name that has spaces.
     command = LIST_FILES_COMMAND.format(absolute_current_directory=quote_path_correctly_outer_double_inner_single(current_directory_value))
+    popup_destructor = create_command_running_popup()
     result = subprocess.run(command, capture_output=True, text=True, shell=True)
     print("Command run: {command}".format(command=command))
+    popup_destructor()
     # The first 2 elements after splitting by \n are ".", and "..", none of which we want.
     file_list = filter_empty_string_elements(result.stdout.split("\n"))[LS_SIMPLE_START_INDEX:]
     
@@ -512,8 +521,10 @@ def get_file_list():
         else:
             # If the file is a directory, then the du command has to be used.
             command = GET_DIRECTORY_KBYTE_SIZE_COMMAND.format(absolute_directory=quote_path_correctly_outer_double_inner_single(current_directory_value + file_list[file_index]))
+            popup_destructor = create_command_running_popup()
             result = subprocess.run(command, capture_output=True, text=True, shell=True)
             print("Command run: {command}".format(command=command))
+            popup_destructor()
             # du in adb appears to only support KB as a minimum size, so to make it compatible with the file constructor which requires bytes, multiply the output by 1000
             file_size = int(filter_empty_string_elements(result.stdout.split())[DIRECTORY_KBYTE_INDEX]) * 1000         
 
@@ -526,8 +537,10 @@ def get_file_list():
             # in which case we can fall back to another command which should work (but is slower)
             try:
                 command = GET_FILE_EPOCH_COMMAND.format(absolute_file_path=current_directory_value + file_list[file_index])
+                popup_destructor = create_command_running_popup()
                 result = subprocess.run(command, capture_output=True, text=True, shell=True)
                 print("Command run: {command}".format(command=command))
+                popup_destructor()
                 file_date_time_timestamp = int(result.stdout.rstrip())
                 file_date_time = format_date_time_string(str(datetime.datetime.fromtimestamp(file_date_time_timestamp)), 0, 1)
                 new_file_descriptor = FileDescriptor(is_directory, file_name, current_directory_value, file_date_time, file_size)
@@ -956,8 +969,10 @@ def on_create_directory():
     # Remove any accidental slashes so there's no path ambiguity
     new_directory_name = create_directory_field.get("1.0", tkinter.END).split("/")[0].replace("\n","").replace("\r","")
     command = CREATE_DIRECTORY_COMMAND.format(absolute_directory=quote_path_correctly_outer_double_inner_single(current_directory_value + new_directory_name))
+    popup_destructor = create_command_running_popup()
     subprocess.run(command, shell=True)
     print("Command run: {command}".format(command=command))
+    popup_destructor()
     create_directory_field.delete(1.0, tkinter.END)
     refresh()
 
@@ -974,8 +989,10 @@ def on_pull():
         # Else, get all files in this directory
         else:
             command = GET_ALL_FILES_IN_DIRECTORY_RECURSIVELY_COMMAND.format(absolute_directory=quote_path_correctly_outer_double_inner_single(current_directory_value + file.file_name + "/"))
+            popup_destructor = create_command_running_popup()
             result = subprocess.run(command, capture_output=True, text=True, shell=True)
             print("Command run: {command}".format(command=command))
+            popup_destructor()
             sub_file_list = filter_empty_string_elements(result.stdout.split("\n"))
             for sub_file in sub_file_list:
                 # e.g. "/sdcard/TestDirectory/test.txt" -> ["sdcard", "TestDirectory", "test.txt"]
@@ -1014,8 +1031,10 @@ def on_pull():
             absolute_file_path_on_host = os.path.join(os.path.abspath("."), OUTPUT_FOLDER, file_name_on_host)
 
         command = PULL_FILE_COMMAND.format(absolute_file_path=quote_path_correctly_outer_double(file.file_absolute_directory_path + file.file_name), absolute_file_path_on_host=quote_path_correctly_outer_double(absolute_file_path_on_host))
+        popup_destructor = create_command_running_popup()
         subprocess.run(command, shell=True)
         print("Command run: {command}".format(command=command))
+        popup_destructor()
 
 # Runs pull first, and then opens up each selected file
 # If a directory has been selected, the directory will be opened, but not the files within it.
@@ -1025,15 +1044,19 @@ def on_open():
         correct_file_name = file.file_name if CURRENT_OS != "Windows" else file.file_name_compat
         absolute_file_path_on_host = os.path.join(os.path.abspath("."), OUTPUT_FOLDER, correct_file_name)
         command = RUNTIME_OPEN_COMMAND.format(absolute_file_path_on_host=quote_path_correctly_outer_double(absolute_file_path_on_host))
+        popup_destructor = create_command_running_popup()
         subprocess.run(command, shell=True)
         print("Command run: {command}".format(command=command))
+        popup_destructor()
         
 # For each selected file, delete it on the file system. 
 def on_delete():
     for file in selected_files:
         command = DELETE_COMMAND.format(absolute_file_path=quote_path_correctly_outer_double_inner_single(current_directory_value + file.file_name))
+        popup_destructor = create_command_running_popup()
         subprocess.run(command, shell=True)
         print("Command run: {command}".format(command=command))
+        popup_destructor()
     refresh()
 
 # After selecting some files, it is possible to use the copy/move functionality
@@ -1069,8 +1092,10 @@ def on_copy_or_move(button_command, this_button, other_button):
             # Copy/move button clicked again, different directory
             for file_name in copy_move_state_info_object.file_names:
                 command = button_command.format(absolute_file_path=quote_path_correctly_outer_double_inner_single(copy_move_state_info_object.initial_working_directory + file_name), absolute_directory=quote_path_correctly_outer_double_inner_single(current_directory_value))
+                popup_destructor = create_command_running_popup()
                 subprocess.run(command, shell=True)
                 print("Command run: {command}".format(command=command))
+                popup_destructor()
             copy_move_state_info_object = None
             refresh()
             modify_widget_states(enable_list=[refresh_button, create_directory_button], disable_list=[pull_button, open_button, copy_button, move_button, delete_button])
@@ -1093,11 +1118,43 @@ def on_rename():
     new_file_name = rename_file_field.get("1.0", tkinter.END).replace("\n","").replace("\r","").replace("/","")
     selected_file_descriptor = list(selected_files)[0]
     command = RENAME_COMMAND.format(absolute_file_path=quote_path_correctly_outer_double_inner_single(selected_file_descriptor.file_absolute_directory_path + selected_file_descriptor.file_name), absolute_new_file_path=quote_path_correctly_outer_double_inner_single(selected_file_descriptor.file_absolute_directory_path + new_file_name))
+    popup_destructor = create_command_running_popup()
     subprocess.run(command, shell=True)    
     print("Command run: {command}".format(command=command))
+    popup_destructor()
     selected_file_descriptor.file_name = new_file_name
     selected_file_descriptor.file_name_compat = get_compatibility_name(selected_file_descriptor.file_name) # For Windows
     redraw()
+
+def create_command_running_popup():
+    def destroy():
+        for element in popup_elements:
+            element.grab_release()
+            element.forget()
+            element.destroy()
+        root.update_idletasks()
+
+    popup_elements = None
+
+    overlay_frame = tk.Frame(root, bg="black", width=260, height=68)
+    overlay_frame.place(x=510, y=360)
+
+    sub_overlay_frame = tk.Frame(root, bg="black", width=256, height=64)
+    sub_overlay_frame.place(x=512, y=362)
+    sub_overlay_frame.rowconfigure(0, minsize=64, weight=0)
+    sub_overlay_frame.columnconfigure(0, minsize=256, weight=0)
+    sub_overlay_frame.grid_propagate(0) # Should stop any resizing based on the size of the grid and added widgets
+
+    sub_overlay_label = tk.Label(sub_overlay_frame, text=("Working" + "." * random.randint(1, 3)), font=("Helvetica", 20), width=1, height=1, bg="white")
+    sub_overlay_label.grid(column=0, row=0, sticky="nsew")
+
+    root.update_idletasks()
+
+    overlay_frame.grab_set()
+
+    popup_elements = [sub_overlay_label, sub_overlay_frame, overlay_frame]
+
+    return destroy
 
 def remove_newlines_in_text_field(target_text_field, target_text_field_cursor):
     text_field_value = target_text_field.get("1.0", tkinter.END).replace("\n","").replace("\r","")
@@ -1130,7 +1187,7 @@ def on_enter_in_text_field(target_text_field, text_field_button_command):
     # Create a thread that will remove any newlines produced once the enter key is lifted or if it is continously held down.
     sanitisation_thread_state = SanitisationThreadState(target_text_field, target_text_field_cursor)
     sanitisation_thread_object = threading.Thread(target=sanitisation_thread_action)
-    sanitisation_thread_object.isDaemon = True
+    sanitisation_thread_object.daemon = True
     sanitisation_thread_object.start()
 
 def sanitisation_thread_action():
