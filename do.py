@@ -137,8 +137,8 @@ print("Creating output directory: {path}".format(path=make_directory_path_value)
 OPEN_FILE_COMMAND_WINDOWS =  "start \"\" \"{absolute_file_path_on_host}\"" # https://superuser.com/a/239572
 OPEN_FILE_COMMAND_LINUX = "xdg-open \"{absolute_file_path_on_host}\""
 
-LIST_FILES_COMMAND = " shell \"ls -1a '{absolute_current_directory}'\""
-LIST_FILES_AND_DETAILS_COMMAND = " shell \"ls -la '{absolute_current_directory}'\""
+LIST_FILES_COMMAND = " shell \"ls -L1a '{absolute_current_directory}'\""
+LIST_FILES_AND_DETAILS_COMMAND = " shell \"ls -Lla '{absolute_current_directory}'\""
 GET_FILE_EPOCH_COMMAND = " shell \"date -r '{absolute_file_path}' \"+%s\"\""
 GET_DIRECTORY_KBYTE_SIZE_COMMAND = " shell \"du -sd 1 -k '{absolute_directory}'\""
 PULL_FILE_COMMAND = " pull \"{absolute_file_path}\" \"{absolute_file_path_on_host}\""
@@ -199,6 +199,7 @@ selected_files = set()
 filtered_current_directory_list = []
 
 # Toolbar Elements
+SANITISE_EVENT_KEY = "<<sanitise>>"
 sanitisation_thread_state = None
 sanitisation_thread_lock = threading.Lock()
 
@@ -526,7 +527,11 @@ def get_file_list():
             print("Command run: {command}".format(command=command))
             popup_destructor()
             # du in adb appears to only support KB as a minimum size, so to make it compatible with the file constructor which requires bytes, multiply the output by 1000
-            file_size = int(filter_empty_string_elements(result.stdout.split())[DIRECTORY_KBYTE_INDEX]) * 1000         
+            try:
+                file_size = int(filter_empty_string_elements(result.stdout.split())[DIRECTORY_KBYTE_INDEX]) * 1000         
+            except:
+                # Can fail if directory does not have read permissions, so skip directory.
+                continue
 
         file_date_time = format_date_time_string(file_list_details[file_index], FILE_LIST_DETAIL_DATE_INDEX, FILE_LIST_DETAIL_TIME_INDEX)
 
@@ -594,8 +599,9 @@ def display_file_list():
     # If in copy/move state, add all unselected directories to the directory list
     if copy_move_state_info_object is not None:
         for file_descriptor in current_directory_list:
-            if file_descriptor.is_directory == True and file_descriptor.is_selected == False:
-                filtered_move_state_directory_list.append(file_descriptor)
+            if file_descriptor.is_directory == True:
+                if copy_move_state_info_object.initial_working_directory != current_directory_value or file_descriptor.file_name not in copy_move_state_info_object.file_names:
+                    filtered_move_state_directory_list.append(file_descriptor)
     # If in search state, add all valid files to the search file list
     if len(search_file_field_value) > 0:
         for file_descriptor in current_directory_list:
@@ -714,10 +720,15 @@ def refresh():
     current_directory_field.delete(1.0, tkinter.END)
     # Clear out the field and rewrite it, just in case.
     current_directory_field.insert(tkinter.END, current_directory_value)
+    scroll_to_top()
     on_unselect_all()
     get_file_list()
     redraw()
     scroll_to_top()
+    # After a refresh, all selections will be cleared out which will disable all interaction buttons including the copy/move button
+    # But if we are in a copy/move state, then the copy/move button must remain enabled.
+    if copy_move_state_info_object is not None:
+        modify_widget_states(enable_list=[copy_move_state_info_object.clicked_button])    
 
 # Will not query the file system, will simply do a re-sort and re-draw based on the current configuration
 def redraw():
@@ -731,6 +742,13 @@ def modify_widget_states(enable_list = [], disable_list = []):
         widget["state"] = "active"
     for widget in disable_list:
         widget["state"] = "disabled"
+
+# Easy way to mass change widget states
+def modify_field_states(enable_list = [], disable_list = []):
+    for field in enable_list:
+        field["state"] = "normal"
+    for field in disable_list:
+        field["state"] = "disabled"
 
 # Sometimes when splitting a string, it produces empty elements in the returned list.
 # This removes them.
@@ -951,10 +969,6 @@ def on_directory_clicked(file_descriptor):
     current_directory_field.insert(tkinter.END, current_directory_value)
     current_directory_list_index = 0
     refresh()
-    # After a refresh, all selections will be cleared out which will disable all interaction buttons including the copy/move button
-    # But if we are in a copy/move state, then the copy/move button must remain enabled.
-    if copy_move_state_info_object is not None:
-        modify_widget_states(enable_list=[copy_move_state_info_object.clicked_button])
 
 # Filters the list of known files. Does not do a new query.
 def on_search():
@@ -1076,7 +1090,8 @@ def on_copy_or_move(button_command, this_button, other_button):
         scroll_to_top()
         display_file_list()
         scroll_to_top()
-        modify_widget_states(disable_list=[refresh_button, create_directory_button, pull_button, open_button, delete_button, other_button])
+        modify_widget_states(disable_list=[rename_file_button, pull_button, open_button, delete_button, other_button])
+        modify_field_states(disable_list=[rename_file_field])
     else:
         # Copy/move button clicked again but in the same directory...
         if copy_move_state_info_object.initial_working_directory == current_directory_value:
@@ -1087,7 +1102,8 @@ def on_copy_or_move(button_command, this_button, other_button):
             scroll_to_top()
             display_file_list()
             scroll_to_top()
-            modify_widget_states(enable_list=[refresh_button, create_directory_button, pull_button, open_button, delete_button, other_button])
+            modify_widget_states(enable_list=[rename_file_button, pull_button, open_button, delete_button, other_button])
+            modify_field_states(enable_list=[rename_file_field])
         else:
             # Copy/move button clicked again, different directory
             for file_name in copy_move_state_info_object.file_names:
@@ -1098,7 +1114,8 @@ def on_copy_or_move(button_command, this_button, other_button):
                 popup_destructor()
             copy_move_state_info_object = None
             refresh()
-            modify_widget_states(enable_list=[refresh_button, create_directory_button], disable_list=[pull_button, open_button, copy_button, move_button, delete_button])
+            modify_widget_states(disable_list=[rename_file_button, pull_button, open_button, copy_button, move_button, delete_button])
+            modify_field_states(disable_list=[rename_file_field])
 
 # Called when a file selection occurrs.
 def update_rename_field_and_state():
@@ -1113,7 +1130,7 @@ def update_rename_field_and_state():
         modify_widget_states(disable_list=[rename_file_button])
         rename_file_field["state"] = "disabled"
 
-# Called when rename button or field gets a <Return>
+# Called when rename button is clicked or field is focused and the enter key is hit
 def on_rename():
     new_file_name = rename_file_field.get("1.0", tkinter.END).replace("\n","").replace("\r","").replace("/","")
     selected_file_descriptor = list(selected_files)[0]
@@ -1126,6 +1143,8 @@ def on_rename():
     selected_file_descriptor.file_name_compat = get_compatibility_name(selected_file_descriptor.file_name) # For Windows
     redraw()
 
+# Any time a command is run, this function should be called to present a UI popup so that the user knows the program is working
+# This function returns a function to destroy the popup once the command is finished
 def create_command_running_popup():
     def destroy():
         for element in popup_elements:
@@ -1143,13 +1162,15 @@ def create_command_running_popup():
     sub_overlay_frame.place(x=512, y=362)
     sub_overlay_frame.rowconfigure(0, minsize=64, weight=0)
     sub_overlay_frame.columnconfigure(0, minsize=256, weight=0)
-    sub_overlay_frame.grid_propagate(0) # Should stop any resizing based on the size of the grid and added widgets
+    sub_overlay_frame.grid_propagate(0) # Should stop any resizing based on added widgets
 
     sub_overlay_label = tk.Label(sub_overlay_frame, text=("Working" + "." * random.randint(1, 3)), font=("Helvetica", 20), width=1, height=1, bg="white")
     sub_overlay_label.grid(column=0, row=0, sticky="nsew")
 
+    # Required to show the popup immediately, otherwise it won't show up until all functions return
     root.update_idletasks()
 
+    # Forces all events to be forwarded to the popup UI, this ensures the user cannot interact with anything else while the command is running
     overlay_frame.grab_set()
 
     popup_elements = [sub_overlay_label, sub_overlay_frame, overlay_frame]
@@ -1169,9 +1190,12 @@ def remove_newlines_in_text_field(target_text_field, target_text_field_cursor):
 # However ... Once all the actions immediately following the enter key press event are completed, tk adds a newline to the text field
 # As a result, the user will see a blank textfield because it has gone onto a newline
 # If the user hits the enter key again, or the button, the program will still function correctly: The field will be sanitised, and the text in that field is used in the relevant function correctly like before.
-# The issue is as follows: The newline character is added after the keydown event is handled, resulting in an unintented final visual state
-# Therefore, we have to create a thread that "waits" some small period of time after the relevant function has returned (such that hopefully the undesired newline character has been added) and sanitises the field again.
+# tldr; A newline character is added after the keydown event is handled, resulting in an unintented final visual state (but not a functional issue)
+# Therefore, we have to create a thread that "waits" some small period of time after the relevant function has returned (such that hopefully the undesired newline character has been added) and sanitise the field again.
 def on_enter_in_text_field(target_text_field, text_field_button_command):
+    # Disabled elements can still be focused and can therefore still receive enter key events, which we don't want to happen.
+    if target_text_field["state"] == "disabled":
+        return
     global sanitisation_thread_state
     with sanitisation_thread_lock:
         if sanitisation_thread_state is not None:
@@ -1194,8 +1218,11 @@ def sanitisation_thread_action():
     time.sleep(1)
     with sanitisation_thread_lock:
         if sanitisation_thread_state.is_interrupted == False:
-            remove_newlines_in_text_field(sanitisation_thread_state.target_text_field, sanitisation_thread_state.target_text_field_cursor)
-            sanitisation_thread_state.is_complete = True
+            root.event_generate(SANITISE_EVENT_KEY, when="tail")
+
+def sanitisation_main_thread_action(event):
+    remove_newlines_in_text_field(sanitisation_thread_state.target_text_field, sanitisation_thread_state.target_text_field_cursor)
+    sanitisation_thread_state.is_complete = True
 
 create_toolbar_row_0() # 64
 create_separator(4, "black")
@@ -1213,4 +1240,5 @@ if CURRENT_OS == "Linux":
 else:
     root.bind("<MouseWheel>", lambda event : file_scrollup_button.invoke() if event.delta > 0 else file_scrolldown_button.invoke() if event.delta < 0 else None)
 
+root.bind(SANITISE_EVENT_KEY, sanitisation_main_thread_action)
 root.mainloop()
